@@ -1,4 +1,5 @@
-from navigator.roadmap.roads import Road, Junction
+from navigator.roadmap.edge import Edge
+from navigator.roadmap.node import Node
 import heapq
 
 class RoadMap:
@@ -7,37 +8,37 @@ class RoadMap:
     and is where all the algorithms are written.
     """
     # TODO : replace junctions list with a K-D Tree of junctions for efficiency.
-    junctions:list[Junction]
-    roads:list[Road]
+    junctions:list[Node]
+    roads:list[Edge]
 
-    def __init__(self, junctions:list[Junction], roads:list[Road]) -> None:
+    def __init__(self, junctions:list[Node], roads:list[Edge]) -> None:
         self.junctions = junctions
         self.roads = roads
 
-    def heuristic(self, junction:Junction) -> float:
+    def heuristic(self, junction:Node) -> float:
         # TODO
         heuristic = 0.0
         return heuristic
 
-    def find_path(self, start:Junction, destination:Junction) -> list[Junction|Road]|None:
+    def find_path(self, start:Node, destination:Node) -> list[Node|Edge]|None:
         """
         Performs A* graph traversal to find the (hopefully) best
         rout from a start point to a destination.
         
         :return: A path list of junctions and roads.
-        :rtype: list[Junction | Road]
+        :rtype: list[Node | Edge]
         """
 
-        path_cost_lookup: dict[Junction, float] = {start: 0.0}
+        path_cost_lookup: dict[Node, float] = {start: 0.0}
 
-        came_from_lookup: dict[Junction, tuple[Road | None, Junction | None]] = {
+        came_from_lookup: dict[Node, tuple[Edge | None, Node | None]] = {
             start: (None, None)
         }
                 
-        frontier:list[tuple[float, Junction]] = []
+        frontier:list[tuple[float, Node]] = []
         heapq.heappush(frontier, (self.heuristic(start), start))
 
-        explored:set[Junction] = set()
+        explored:set[Node] = set()
 
         while frontier:
             _, current_junction = heapq.heappop(frontier)
@@ -47,7 +48,7 @@ class RoadMap:
             
             explored.add(current_junction)
 
-            for road in current_junction.roads:
+            for road in current_junction.edges:
                 if road.end and not any([road.end == j for _, j in frontier]) and \
                 road.end not in explored:
                     heapq.heappush(frontier, (path_cost_lookup[current_junction] + self.heuristic(road.end), road.end))# TODO add path cost + heuristic
@@ -59,8 +60,8 @@ class RoadMap:
 
         return None
 
-    def _reconstruct_path(self, came_from_lookup: dict[Junction, tuple[Road | None, Junction | None]], end: Junction):
-        path:list[Junction | Road] = []
+    def _reconstruct_path(self, came_from_lookup: dict[Node, tuple[Edge | None, Node | None]], end: Node):
+        path:list[Node | Edge] = []
         current = end
 
         while True:

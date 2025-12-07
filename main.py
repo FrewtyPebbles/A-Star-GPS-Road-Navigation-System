@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from navigator.road_map_maker import RoadMapMaker
+from navigator.roadmap_maker import RoadMapMaker
 
 def main():
     fullerton_bbox = [-117.980, 33.850, -117.850, 33.920]

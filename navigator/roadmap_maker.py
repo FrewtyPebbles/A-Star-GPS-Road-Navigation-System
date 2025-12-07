@@ -5,7 +5,7 @@ from pyrosm import OSM
 from geopandas import GeoDataFrame
 from pathlib import Path
 
-from navigator.roadmap import RoadMap, Junction, Road
+from navigator.roadmap import RoadMap, Node, Edge, NodeFactory, EdgeFactory
 
 class RoadMapMaker:
     """
@@ -78,56 +78,40 @@ class RoadMapMaker:
     def convert_gdf_to_graph(self, nodes:GeoDataFrame, edges:GeoDataFrame) -> RoadMap:
         self.print("Building graph...")
 
-        junctions_by_id:dict[int, Junction] = {}
-        road_list:list[Road] = []
+        node_by_id:dict[int, Node] = {}
+        edge_list:list[Edge] = []
 
         for _, row in nodes.iterrows():
-            junctions_by_id[row['id']] = Junction(
-                row['id'],
-                row['lon'],
-                row['lat']
-            )
+            node_by_id[row['id']] = NodeFactory.produce(row, edges)
 
         for _, row in edges.iterrows():
             start_id:int = row['u']
             end_id:int = row['v']
 
-            start_junction = junctions_by_id.get(start_id, None)
-            end_junction = junctions_by_id.get(end_id, None)
+            start_node = node_by_id.get(start_id, None)
+            end_node = node_by_id.get(end_id, None)
 
-            road = Road(
-                start_junction,
-                end_junction,
-                length = row.get('length', 0.0),
-                road_type = row.get('highway', 'unknown'),
-                oneway = row.get('oneway', True),
-                geometry = row.geometry
-            )
-            if start_junction:
-                start_junction.roads.append(road)
+            edge = EdgeFactory.produce(row, start_node, end_node)
+            if row.get('junction', 'unknown'):
+                self.print(f"junction: {row.get('junction', 'unknown')}")
+            if start_node:
+                start_node.edges.append(edge)
             
-            road_list.append(road)
+            edge_list.append(edge)
 
             if not row.get('oneway', True):
                 # add a edge in reverse if the road is a twoway street
-                reverse_road = Road(
-                    end_junction,
-                    start_junction,
-                    length = row.get('length', 0.0),
-                    road_type = row.get('highway', 'unknown'),
-                    oneway = False,
-                    geometry = row.geometry
-                )
-                if end_junction:
-                    end_junction.roads.append(reverse_road)
+                reverse_edge = EdgeFactory.produce(row, end_node, start_node)
+                if end_node:
+                    end_node.edges.append(reverse_edge)
 
-                road_list.append(reverse_road)
+                edge_list.append(reverse_edge)
                 
-        return RoadMap(list(junctions_by_id.values()), road_list)
+        return RoadMap(list(node_by_id.values()), edge_list)
 
     
     def load(self) -> RoadMap:
-        self.print("Creating Road Map...")
+        self.print("Creating Edge Map...")
         self.print("Attempting to find cached geodataframes...")
         nodes = self._cache_load_gdf(f"{self.cache_name}_nodes")
         edges = self._cache_load_gdf(f"{self.cache_name}_edges")
@@ -142,7 +126,9 @@ class RoadMapMaker:
         else:
             self.print("Found cached geodataframes!")
 
-        # convert
+        self.print(f"NODE COLUMNS: {', '.join(nodes.columns)}")
+        self.print(f"EDGE COLUMNS: {', '.join(edges.columns)}")
+        # convert the gdfs to roadmap
         graph = self.convert_gdf_to_graph(nodes, edges)
 
         return graph
