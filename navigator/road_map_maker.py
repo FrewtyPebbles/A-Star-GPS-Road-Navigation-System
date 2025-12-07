@@ -1,6 +1,6 @@
 import pickle
 import os
-from typing import Literal
+from typing import Any, Literal
 from pyrosm import OSM
 from geopandas import GeoDataFrame
 from pathlib import Path
@@ -32,32 +32,12 @@ class RoadMapMaker:
         self.cache_folder.mkdir(exist_ok=True)
         self.stdout_enabled = stdout_enabled
 
-    def print(self, msg:str):
+    def print(self, msg:Any):
         if self.stdout_enabled:
-            print(msg)
+            print(str(msg))
 
     def get_cache_file_path(self, file_suffix:str) -> Path:
         return self.cache_folder / f"{self.cache_name}{file_suffix}.pkl"
-
-    def cache(self, graph:RoadMap):
-        self.print("Saving cache...")
-
-        with open(self.get_cache_file_path("_graph"), "wb") as f:
-            pickle.dump(graph, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        self.print("Cache saved.")
-
-    def cache_load(self) -> RoadMap | None:
-        graph_path = self.get_cache_file_path("_graph")
-        if graph_path.exists():
-            self.print("Loading cached graph data...")
-
-            with open(graph_path, "rb") as f:
-                graph = pickle.load(f)
-
-            return graph
-        
-        return None
 
     def _cache_gdf(self, gdf:GeoDataFrame, tag:str):
         self.print(f"Saving geodataframe cache with tag: {tag}")
@@ -102,14 +82,18 @@ class RoadMapMaker:
         road_list:list[Road] = []
 
         for _, row in nodes.iterrows():
-            junctions_by_id[row['id']] = Junction(row['id'], row['x'], row['y'])
+            junctions_by_id[row['id']] = Junction(
+                row['id'],
+                row['lon'],
+                row['lat']
+            )
 
         for _, row in edges.iterrows():
             start_id:int = row['u']
             end_id:int = row['v']
 
-            start_junction = junctions_by_id[start_id]
-            end_junction = junctions_by_id[end_id]
+            start_junction = junctions_by_id.get(start_id, None)
+            end_junction = junctions_by_id.get(end_id, None)
 
             road = Road(
                 start_junction,
@@ -119,7 +103,8 @@ class RoadMapMaker:
                 oneway = row.get('oneway', True),
                 geometry = row.geometry
             )
-            start_junction.edges.append(road)
+            if start_junction:
+                start_junction.roads.append(road)
             
             road_list.append(road)
 
@@ -133,7 +118,8 @@ class RoadMapMaker:
                     oneway = False,
                     geometry = row.geometry
                 )
-                end_junction.edges.append(reverse_road)
+                if end_junction:
+                    end_junction.roads.append(reverse_road)
 
                 road_list.append(reverse_road)
                 
@@ -141,33 +127,23 @@ class RoadMapMaker:
 
     
     def load(self) -> RoadMap:
+        self.print("Creating Road Map...")
+        self.print("Attempting to find cached geodataframes...")
+        nodes = self._cache_load_gdf(f"{self.cache_name}_nodes")
+        edges = self._cache_load_gdf(f"{self.cache_name}_edges")
+        if nodes is None or edges is None:
+            self.print(f"No cached geodataframes found!\nExtracting from PBF file '{self.pbf_file_path}'.\nThis may take a long time...")
+            
+            nodes, edges = self._load_raw_graph()
 
-        # try to load from cache
-        graph = self.cache_load()
-
-        if graph:
-            # cache hit
-            self.print("Cached graph data loaded!")
-            return graph
+            # cache the map!
+            self._cache_gdf(nodes, f"{self.cache_name}_nodes")
+            self._cache_gdf(edges, f"{self.cache_name}_edges")
         else:
-            # cache miss :^(
-            # time for slow loading from pbf
-            self.print("No cache found for current graph!\nAttempting to find cached geodataframes...")
-            nodes = self._cache_load_gdf(f"{self.cache_name}_nodes")
-            edges = self._cache_load_gdf(f"{self.cache_name}_edges")
-            if nodes is None or edges is None:
-                self.print(f"No cached geodataframes found!\nExtracting from PBF file '{self.pbf_file_path}'.\nThis may take a long time...")
-                
-                nodes, edges = self._load_raw_graph()
+            self.print("Found cached geodataframes!")
 
-                # cache the map!
-                self._cache_gdf(nodes, f"{self.cache_name}_nodes")
-                self._cache_gdf(edges, f"{self.cache_name}_edges")
-
-            # convert
-            graph = self.convert_gdf_to_graph(nodes, edges)
-
-            self.cache(graph)
+        # convert
+        graph = self.convert_gdf_to_graph(nodes, edges)
 
         return graph
 

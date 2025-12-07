@@ -11,8 +11,6 @@ def main():
     graph_reader = RoadMapMaker(fullerton_bbox, pbf, cache_name)
 
     graph = graph_reader.load()
-    print(graph.junctions)
-    print(graph.roads)
 
 if __name__ == "__main__":
     main()

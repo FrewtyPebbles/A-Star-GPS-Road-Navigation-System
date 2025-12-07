@@ -48,12 +48,12 @@ class RoadMap:
             explored.add(current_junction)
 
             for road in current_junction.roads:
-                if not any([road.end == j for _, j in frontier]) and \
+                if road.end and not any([road.end == j for _, j in frontier]) and \
                 road.end not in explored:
                     heapq.heappush(frontier, (path_cost_lookup[current_junction] + self.heuristic(road.end), road.end))# TODO add path cost + heuristic
                 else:
                     for frontier_index, (cost, junction) in enumerate(frontier):
-                        if road.end == junction and path_cost_lookup[current_junction] < cost:
+                        if road.end and road.end == junction and path_cost_lookup[current_junction] < cost:
                             frontier[frontier_index] = (path_cost_lookup[current_junction] + self.heuristic(road.end), road.end)
                             break
 

@@ -11,7 +11,7 @@ class Junction:
         self.id = id
         self.x = x
         self.y = y
-        self.edges = []
+        self.roads = []
 
     def __repr__(self) -> str:
         return f"Junction(id: {self.id}, x: {self.x}, y: {self.y}, roads(count): {len(self.roads)})"
@@ -20,14 +20,14 @@ class Junction:
         return self.id
     
 class Road:
-    start:Junction
-    end:Junction
+    start:Junction | None
+    end:Junction | None
     length:float
     road_type:str # TODO : Replace with an enumerator
     oneway:bool
     geometry:LineString
 
-    def __init__(self, start:Junction, end:Junction, length:float, road_type:str, oneway:bool, geometry:LineString) -> None:
+    def __init__(self, start:Junction | None, end:Junction | None, length:float, road_type:str, oneway:bool, geometry:LineString) -> None:
         self.start = start
         self.end = end
         self.length = length
@@ -36,4 +36,4 @@ class Road:
         self.geometry = geometry
 
     def __repr__(self) -> str:
-        return f"Road(start{{{self.start.id}}} -> end{{{self.end.id}}}, length: {self.length}m, type: {self.road_type}, oneway: {self.oneway})"
+        return f"Road(start{{{self.start.id if self.start else 'NONE'}}} -> end{{{self.end.id if self.end else 'NONE'}}}, length: {self.length}m, type: {self.road_type}, oneway: {self.oneway})"
