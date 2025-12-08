@@ -6,6 +6,10 @@ import heapq
 from navigator.roadmap.node_types import RoadNode
 from navigator.roadmap.types import NodeAndEdgeDataDict
 from PIL import Image, ImageDraw
+from scipy.spatial import KDTree
+
+EARTHS_RADIUS = 6378137
+METERS_PER_MILE = 1609.344
 
 class RoadMap:
     """
@@ -14,21 +18,28 @@ class RoadMap:
     """
     nodes:list[Node]
     edges:list[Edge]
+    node_kd_tree:KDTree
 
     def __init__(self, nodes:list[Node], edges:list[Edge]) -> None:
         self.nodes = nodes
         self.edges = edges
+        self.node_kd_tree = KDTree([self.lonlat_to_mercator(node.x, node.y) for node in nodes])
 
-    def find_node(self, x_lon:float, y_lat:float) -> None | Node:
-        best = None
-        best_distance = float('inf')
-        for node in self.nodes:
-            if isinstance(node, RoadNode):
-                current_distance = self.euclidian_distance(x_lon, y_lat, node.x, node.y)
-                if current_distance < best_distance:
-                    best_distance = current_distance
-                    best = node
-        return best
+    @staticmethod
+    def lonlat_to_mercator(lon:float, lat:float):
+        x = EARTHS_RADIUS * math.radians(lon)
+        y = EARTHS_RADIUS * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+        return x / METERS_PER_MILE, y / METERS_PER_MILE
+    
+    @staticmethod
+    def mercator_to_lonlat(x, y):
+        lon = math.degrees(x * METERS_PER_MILE / EARTHS_RADIUS)
+        lat = math.degrees(2 * math.atan(math.exp(y * METERS_PER_MILE / EARTHS_RADIUS)) - math.pi/2)
+        return lon, lat
+
+    def find_node(self, x:float, y:float) -> None | Node:
+        dist, idx = self.node_kd_tree.query((x, y))
+        return self.nodes[idx]
             
 
     def road_cost(self, data:NodeAndEdgeDataDict) -> float:
@@ -41,7 +52,7 @@ class RoadMap:
         causes_stops:bool = data.get('causes_stops', False)
         connections:int = data.get('connections', 1)
         dead_end:bool = data.get('dead_end', False)
-        lanes:int = data.get('lanes', 1)
+        lanes:int = data.get('lanes', 1) if data.get('lanes', 1) else 1
         length:float|int = data.get('length', 9999999.0)
         speed_limit:int = data.get('speed_limit', 25)
         oneway:bool = data.get('oneway', True)
@@ -55,7 +66,9 @@ class RoadMap:
 
         # Try to predict time on the road in hours
         pred = speed_limit - (number_of_cars_on_road - 1) / number_of_cars_on_road * speed_limit
-        cost += length / min(max(pred, 15), pred)
+        cost += length / min(max(pred / lanes, 15), speed_limit)
+        if causes_stops:
+            cost += max(1, 2 * number_of_cars_on_road)/60
         match road_type:
             case "stop":
                 cost += max(1, 2 * number_of_cars_on_road) /60
@@ -66,13 +79,17 @@ class RoadMap:
         return cost
     
     @staticmethod
-    def euclidian_distance(x_lon1:float, y_lat1:float, x_lon2:float, y_lat2:float) -> float:
-        # Conversions
-        lo_to_mi = lambda lo, lat: lo * 69.1 * math.cos(math.radians(lat))
-        la_to_mi = lambda la: la * 69.1
-
+    def euclidian_distance(x1:float, y1:float, x2:float, y2:float) -> float:
         # Distance
-        return math.sqrt((lo_to_mi(x_lon1, y_lat1) - lo_to_mi(x_lon2, y_lat2))**2 + (la_to_mi(y_lat1) - la_to_mi(y_lat2))**2)
+        return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+    
+    def heuristic(self, node:Node, destination:Node, sample_rate:float) -> float:
+        cost:float = 0.0
+        node_x, node_y = self.lonlat_to_mercator(node.x, node.y)
+        destination_x, destination_y = self.lonlat_to_mercator(destination.x, destination.y)
+        distance:float = self.euclidian_distance(node_x, node_y, destination_x, destination_y)
+        
+        return distance / 30 # assume 30 mph on average for now but swap out for a cummulative average of all the previous roads traveled.
 
     def a_star_find_path(self, start:Node, destination:Node) -> list[Node|Edge]|None:
         """
@@ -82,9 +99,8 @@ class RoadMap:
         :return: A path list of junctions and roads.
         :rtype: list[Node | Edge]
         """
-
-        get_eu_dis = lambda node: self.euclidian_distance(node.x, node.y, destination.x, destination.y)
-
+        speed_limit_sum = 0
+        speed_limit_count = 0
         path_cost_lookup: dict[Node, float] = {start: 0.0}
 
         came_from_lookup: dict[Node, tuple[Edge | None, Node | None]] = {
@@ -93,7 +109,7 @@ class RoadMap:
                 
         counter = 0
         frontier:list[tuple[float, int, Node]] = []
-        heapq.heappush(frontier, (get_eu_dis(start), counter, start)) # type: ignore
+        heapq.heappush(frontier, (self.heuristic(start, destination, 0.5), counter, start)) # type: ignore
         counter += 1
 
         explored:set[Node] = set()
@@ -122,7 +138,7 @@ class RoadMap:
                 if road.end not in path_cost_lookup or path_cost < path_cost_lookup[road.end]:
                     path_cost_lookup[road.end] = path_cost
                     came_from_lookup[road.end] = (road, current_node)
-                    heapq.heappush(frontier, (path_cost + get_eu_dis(road.end), counter, road.end))
+                    heapq.heappush(frontier, (path_cost + self.heuristic(road.end, destination, 0.5), counter, road.end))
                     counter += 1
 
         return None
@@ -182,7 +198,11 @@ class RoadMap:
         current = end
 
         while True:
-            road, prev = came_from_lookup[current]
+            came_from_result = came_from_lookup.get(current)
+            if not came_from_result:
+                path.append(current)
+                break
+            road, prev = came_from_result
             if current:
                 path.append(current)
             if prev is None:

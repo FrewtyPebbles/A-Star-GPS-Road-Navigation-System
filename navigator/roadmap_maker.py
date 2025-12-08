@@ -92,7 +92,6 @@ class RoadMapMaker:
             end_node = node_by_id.get(end_id, None)
 
             edge = EdgeFactory.produce(row, start_node, end_node)
-            
             if start_node:
                 start_node.edges.append(edge)
             
@@ -110,7 +109,7 @@ class RoadMapMaker:
 
     
     def load(self) -> RoadMap:
-        self.print("Creating Edge Map...")
+        self.print("Creating Road Map...")
         self.print("Attempting to find cached geodataframes...")
         nodes = self._cache_load_gdf(f"{self.cache_name}_nodes")
         edges = self._cache_load_gdf(f"{self.cache_name}_edges")

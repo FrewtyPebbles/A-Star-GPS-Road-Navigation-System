@@ -30,10 +30,10 @@ class EdgeFactory(Edge):
                 end_node,
                 geometry = row.geometry,
                 max_speed = row.get('maxspeed', "25 mph") if row.get('maxspeed', "25 mph") else "25 mph",
-                lanes = row.get('lanes', 1),
-                oneway = row.get('oneway', True),
+                lanes = int(row.get('lanes', 1)) if row.get('lanes', 1) else 1,
+                oneway = bool(row.get('oneway', True)) if row.get('oneway', True) else True,
                 road_type = row.get('highway', "unknown"),
-                length = row.get('length', 9999999.0)
+                length = float(row.get('length', 9999999.0))
             )
         else:
             return Edge(
