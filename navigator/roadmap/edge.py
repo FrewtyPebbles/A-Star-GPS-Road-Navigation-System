@@ -1,13 +1,14 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from shapely.geometry import LineString
 from navigator.roadmap.node import Node
+from navigator.roadmap.types import EdgeDataDict
 
 class Edge:
     start:Node | None
     end:Node | None
     geometry:LineString
-    data:dict[str, Any]
+    data:EdgeDataDict
     
 
     def __init__(self, start:Node | None, end:Node | None, geometry:LineString) -> None:

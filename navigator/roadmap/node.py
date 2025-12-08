@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Any, Literal, TYPE_CHECKING
+
+from navigator.roadmap.types import NodeDataDict
 if TYPE_CHECKING:
     from navigator.roadmap.edge import Edge
 
@@ -9,7 +11,7 @@ class Node:
     y:float
     tags:dict[str, Any]
     edges:list[Edge]
-    data:dict[Literal['causes_stops', 'connections', 'dead_end'], Any]
+    data:NodeDataDict
 
     def __init__(self, id:int, x:float, y:float, tags:dict[str, Any]) -> None:
         self.id = id

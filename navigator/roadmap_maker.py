@@ -76,7 +76,7 @@ class RoadMapMaker:
         return nodes, edges
     
     def convert_gdf_to_graph(self, nodes:GeoDataFrame, edges:GeoDataFrame) -> RoadMap:
-        self.print("Building graph...")
+        self.print("Building graph (This may take a minute.)...")
 
         node_by_id:dict[int, Node] = {}
         edge_list:list[Edge] = []
@@ -92,8 +92,7 @@ class RoadMapMaker:
             end_node = node_by_id.get(end_id, None)
 
             edge = EdgeFactory.produce(row, start_node, end_node)
-            if row.get('junction', 'unknown'):
-                self.print(f"junction: {row.get('junction', 'unknown')}")
+            
             if start_node:
                 start_node.edges.append(edge)
             
@@ -126,8 +125,8 @@ class RoadMapMaker:
         else:
             self.print("Found cached geodataframes!")
 
-        self.print(f"NODE COLUMNS: {', '.join(nodes.columns)}")
-        self.print(f"EDGE COLUMNS: {', '.join(edges.columns)}")
+        # self.print(f"NODE COLUMNS: {', '.join(nodes.columns)}")
+        # self.print(f"EDGE COLUMNS: {', '.join(edges.columns)}")
         # convert the gdfs to roadmap
         graph = self.convert_gdf_to_graph(nodes, edges)
 

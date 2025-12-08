@@ -18,7 +18,7 @@ class EdgeFactory(Edge):
         "tertiary", "tertiary_link",
         "residential",
         "unclassified",
-        "service"
+        "service", "living_street", "services"
     }
 
     @classmethod
@@ -29,11 +29,11 @@ class EdgeFactory(Edge):
                 start_node,
                 end_node,
                 geometry = row.geometry,
-                max_speed = row.get('maxspeed', 0.0),
+                max_speed = row.get('maxspeed', "25 mph") if row.get('maxspeed', "25 mph") else "25 mph",
                 lanes = row.get('lanes', 1),
                 oneway = row.get('oneway', True),
-                road_type = row.get('highway', 'unknown'),
-                length = row.get('length', 0.0)
+                road_type = row.get('highway', "unknown"),
+                length = row.get('length', 9999999.0)
             )
         else:
             return Edge(

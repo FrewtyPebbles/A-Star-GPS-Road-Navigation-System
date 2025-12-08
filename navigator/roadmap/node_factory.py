@@ -20,7 +20,7 @@ class NodeFactory:
                 row['id'],
                 row['lon'],
                 row['lat'],
-                row['tags']
+                row.get('tags', {}) if row.get('tags', {}) else {}
             )
         edges_connected = edges_gdf[(edges_gdf.u == row['id']) | (edges_gdf.v == row['id'])]
         if not row["tags"] and len(edges_connected) == 2:
@@ -28,20 +28,20 @@ class NodeFactory:
                 row['id'],
                 row['lon'],
                 row['lat'],
-                row['tags']
+                row.get('tags', {}) if row.get('tags', {}) else {}
             )
         if len(edges_connected) >= 3:
             return Junction(
                 row['id'],
                 row['lon'],
                 row['lat'],
-                row['tags'],
+                row.get('tags', {}) if row.get('tags', {}) else {},
                 len(edges_connected)
             )
         return Node(
             row['id'],
             row['lon'],
             row['lat'],
-            row['tags']
+            row.get('tags', {}) if row.get('tags', {}) else {}
         )
         
