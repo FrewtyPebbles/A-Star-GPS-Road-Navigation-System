@@ -8,6 +8,10 @@ The dataset we used specifically was from [this page](https://download.geofabrik
 
 Here are some tests navigating to and from random places within the Fullerton, CA area.
 
+---
+---
+---
+
 ## A*
 
 ![A* test](tests/a_star_fullerton_-8152.207095985362_2495.2867764046973_-8159.574648414691_2491.437884082884.png)
@@ -24,6 +28,8 @@ Here are some tests navigating to and from random places within the Fullerton, C
 
 *Arrival*: 41.94 min
 
+---
+---
 ---
 
 ## A*
@@ -43,6 +49,8 @@ Here are some tests navigating to and from random places within the Fullerton, C
 *Arrival*: 24.72 min
 
 ---
+---
+---
 
 ## A*
 
@@ -59,3 +67,7 @@ Here are some tests navigating to and from random places within the Fullerton, C
 *Benchmark* : 21 ms
 
 *Arrival*: 6.07 min
+
+---
+---
+---
