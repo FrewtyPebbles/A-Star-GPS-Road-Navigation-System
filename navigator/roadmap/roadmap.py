@@ -83,13 +83,13 @@ class RoadMap:
         # Distance
         return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
     
-    def heuristic(self, node:Node, destination:Node, sample_rate:float) -> float:
+    def heuristic(self, node:Node, destination:Node, average_speed_limit:float) -> float:
         cost:float = 0.0
         node_x, node_y = self.lonlat_to_mercator(node.x, node.y)
         destination_x, destination_y = self.lonlat_to_mercator(destination.x, destination.y)
         distance:float = self.euclidian_distance(node_x, node_y, destination_x, destination_y)
         
-        return distance / 30 # assume 30 mph on average for now but swap out for a cummulative average of all the previous roads traveled.
+        return distance / average_speed_limit
 
     def a_star_find_path(self, start:Node, destination:Node) -> list[Node|Edge]|None:
         """
@@ -106,11 +106,26 @@ class RoadMap:
         came_from_lookup: dict[Node, tuple[Edge | None, Node | None]] = {
             start: (None, None)
         }
+
+        # Calculating a running average of all of the roads speed limit which we have traveled on
+        # The next road probably wont be much different.
+        cumulative_speed_limit = 0.0
+        cumulative_roads = 0
+        
+        start_road_cumu_speed_limit = 0.0
+        for edge in start.edges:
+            start_road_cumu_speed_limit += edge.data.get('speed_limit', 25)
+            
+        cumulative_speed_limit += start_road_cumu_speed_limit / len(start.edges)
+        cumulative_roads += 1
+            
                 
         counter = 0
         frontier:list[tuple[float, int, Node]] = []
-        heapq.heappush(frontier, (self.heuristic(start, destination, 0.5), counter, start)) # type: ignore
+        heapq.heappush(frontier, (self.heuristic(start, destination, cumulative_speed_limit/cumulative_roads), counter, start)) # type: ignore
         counter += 1
+
+        
 
         explored:set[Node] = set()
 
@@ -136,9 +151,11 @@ class RoadMap:
                 
 
                 if road.end not in path_cost_lookup or path_cost < path_cost_lookup[road.end]:
+                    cumulative_speed_limit += road.data.get('speed_limit', 25)
+                    cumulative_roads += 1
                     path_cost_lookup[road.end] = path_cost
                     came_from_lookup[road.end] = (road, current_node)
-                    heapq.heappush(frontier, (path_cost + self.heuristic(road.end, destination, 0.5), counter, road.end))
+                    heapq.heappush(frontier, (path_cost + self.heuristic(road.end, destination, cumulative_speed_limit/cumulative_roads), counter, road.end))
                     counter += 1
 
         return None
