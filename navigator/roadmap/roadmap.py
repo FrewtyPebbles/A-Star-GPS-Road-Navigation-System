@@ -66,7 +66,7 @@ class RoadMap:
 
         # Try to predict time on the road in hours
         pred = speed_limit - (number_of_cars_on_road - 1) / number_of_cars_on_road * speed_limit
-        cost += length / min(max(pred / lanes, 15), speed_limit)
+        cost += length / min(max(pred, 15), speed_limit)
         if causes_stops:
             cost += max(1, 2 * number_of_cars_on_road)/60
         match road_type:
@@ -83,13 +83,12 @@ class RoadMap:
         # Distance
         return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
     
-    def heuristic(self, node:Node, destination:Node, average_speed_limit:float) -> float:
-        cost:float = 0.0
+    def heuristic(self, node:Node, destination:Node, average_speed_limit:float, average_lanes:float) -> float:
         node_x, node_y = self.lonlat_to_mercator(node.x, node.y)
         destination_x, destination_y = self.lonlat_to_mercator(destination.x, destination.y)
         distance:float = self.euclidian_distance(node_x, node_y, destination_x, destination_y)
         
-        return distance / average_speed_limit
+        return distance / max(average_speed_limit, 15)
 
     def a_star_find_path(self, start:Node, destination:Node) -> list[Node|Edge]|None:
         """
@@ -99,8 +98,6 @@ class RoadMap:
         :return: A path list of junctions and roads.
         :rtype: list[Node | Edge]
         """
-        speed_limit_sum = 0
-        speed_limit_count = 0
         path_cost_lookup: dict[Node, float] = {start: 0.0}
 
         came_from_lookup: dict[Node, tuple[Edge | None, Node | None]] = {
@@ -110,19 +107,22 @@ class RoadMap:
         # Calculating a running average of all of the roads speed limit which we have traveled on
         # The next road probably wont be much different.
         cumulative_speed_limit = 0.0
+        cumulative_lanes = 0
         cumulative_roads = 0
         
         start_road_cumu_speed_limit = 0.0
         for edge in start.edges:
             start_road_cumu_speed_limit += edge.data.get('speed_limit', 25)
+            cumulative_lanes += edge.data.get('lanes', 1) if edge.data.get('lanes', 1) else 1
+
             
-        cumulative_speed_limit += start_road_cumu_speed_limit / len(start.edges)
+        cumulative_speed_limit += start_road_cumu_speed_limit / max(len(start.edges), 1)
         cumulative_roads += 1
             
                 
         counter = 0
         frontier:list[tuple[float, int, Node]] = []
-        heapq.heappush(frontier, (self.heuristic(start, destination, cumulative_speed_limit/cumulative_roads), counter, start)) # type: ignore
+        heapq.heappush(frontier, (self.heuristic(start, destination, cumulative_speed_limit/cumulative_roads, cumulative_lanes/cumulative_roads), counter, start)) # type: ignore
         counter += 1
 
         
@@ -151,11 +151,12 @@ class RoadMap:
                 
 
                 if road.end not in path_cost_lookup or path_cost < path_cost_lookup[road.end]:
+                    cumulative_lanes += road.data.get('lanes', 1) if road.data.get('lanes', 1) else 1
                     cumulative_speed_limit += road.data.get('speed_limit', 25)
                     cumulative_roads += 1
                     path_cost_lookup[road.end] = path_cost
                     came_from_lookup[road.end] = (road, current_node)
-                    heapq.heappush(frontier, (path_cost + self.heuristic(road.end, destination, cumulative_speed_limit/cumulative_roads), counter, road.end))
+                    heapq.heappush(frontier, (path_cost + self.heuristic(road.end, destination, cumulative_speed_limit/cumulative_roads, cumulative_lanes/cumulative_roads), counter, road.end))
                     counter += 1
 
         return None

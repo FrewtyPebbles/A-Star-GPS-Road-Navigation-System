@@ -8,7 +8,7 @@ import random
 def main():
     fullerton_bbox = [-117.980, 33.850, -117.850, 33.920]
 
-    pbf = r"./socal-251205.osm.pbf"
+    pbf = r"./socal-251212.osm.pbf"
 
     cache_name = "fullerton"
 
