@@ -8,6 +8,8 @@ The dataset we used specifically was from [this page](https://download.geofabrik
 
 Here are some tests navigating to and from random places within the Fullerton, CA area.
 
+See `Project Report - CPSC 481.pdf` for results from more meaningful tests.
+
 ---
 ---
 ---
